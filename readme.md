@@ -8,6 +8,8 @@ Build commands:
 1. Inside sbt shell run command flow / dist
 1. run command dist
 
+Also you may use docker:publichLocal sbt command
+
 Start
 1. Locate file ./flow/target/universal/flow-1.0-SNAPSHOT.zip
 1. Extract it and start main cluster nodes
