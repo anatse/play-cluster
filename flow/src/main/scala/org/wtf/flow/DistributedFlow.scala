@@ -36,7 +36,6 @@ object DistributedFlow {
 
   case class Flow(name: String, initialState: FlowState, states: Seq[FlowState])
 
-
   def props(flow:Flow, processId: String) = Props(new FlowActor(flow, processId))
 
   class FlowRegister extends Actor with ActorLogging {
@@ -68,7 +67,6 @@ class FlowActor(flow:Flow, processId: String) extends PersistentFSM[FlowState, M
   override implicit def domainEventClassTag: ClassTag[DomainEvt] = deClassTag
 
   def idleTimer = {
-    classTag[DomainEvt]
     cancelTimer("idleTimer")
     setTimer("idleTimer", "end", 1800 second)
   }
@@ -167,8 +165,12 @@ class FlowActor(flow:Flow, processId: String) extends PersistentFSM[FlowState, M
           implicit val timeout = Timeout(5 seconds)
           import context.dispatcher
           (context.parent ? Start(extFlow.externalFlowPath)).mapTo[ActorRef].onComplete {
-            case Success(subflow) => subflow ! ExternalFlowEvent(subflowData)
-            case Failure(err) => log.error(s"Error calling subflow: ${err}")
+            case Success(subflow) =>
+              log.error(s"Success call subflow: ${subflow}")
+              subflow ! ExternalFlowEvent(subflowData)
+
+            case Failure(err) =>
+              log.error(s"Error calling subflow: ${err}")
           }
 
           // Change state for listen response from subflow

@@ -21,7 +21,7 @@ import scala.concurrent.Future
 @Singleton
 class HomeController @Inject()(cc: ControllerComponents, system: ActorSystem) extends AbstractController(cc) {
 
-  val backend = system.actorOf(FromConfig.props(), name = "factorialBackendRouter")
+  val backend = system.actorOf(FromConfig.props(), name = "flowRegistryRouter")
   var flows = Map.empty[String, ActorRef]
 
   /**
