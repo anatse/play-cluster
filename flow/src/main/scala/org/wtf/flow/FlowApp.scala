@@ -15,9 +15,12 @@ object FlowApp {
   def main(args: Array[String]): Unit = {
     val port = if (args.isEmpty) "0" else args(0)
 
+    println (s"Starting on port: $port")
+
     val config = ConfigFactory.parseString(s"""
         akka.remote.netty.tcp.port=$port
         akka.remote.artery.canonical.port=$port
+        akka.persistence.journal.leveldb.dir = "target/journal-$port"
         """)
       .withFallback(ConfigFactory.parseString("akka.cluster.roles = [backend]"))
       .withFallback(ConfigFactory.load("application"))

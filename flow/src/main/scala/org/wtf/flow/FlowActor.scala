@@ -2,66 +2,17 @@ package org.wtf.flow
 
 import java.util.UUID
 
-import akka.actor.{Actor, ActorLogging, ActorRef, FSM, Props}
-import akka.pattern.{ask, pipe}
+import akka.actor.{ActorRef, Props}
 import akka.persistence.fsm.PersistentFSM
 import akka.persistence.fsm.PersistentFSM.Normal
 import akka.util.Timeout
 import org.wtf.flow.DistributedFlow._
 
-import scala.concurrent.duration._
+import akka.pattern.ask
+
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
-import scala.reflect._
-
-object DistributedFlow {
-  val deClassTag = classTag[DomainEvt]
-
-  type MapData = Map[String, _]
-
-  case class FlowEvent(name: String, handler: MapData => (String, MapData))
-
-  sealed trait FlowState extends PersistentFSM.FSMState {
-    val identifier:String = ""
-    val events:Seq[FlowEvent] = Seq.empty
-  }
-
-  case class DomainEvent (stateName: String, stateData: MapData) extends DomainEvt
-
-  case class FlowInternalState(override val identifier: String, override val events: Seq[FlowEvent]) extends FlowState
-  case class FlowExternalFlow(override val identifier: String, externalFlowPath: String, nextState: String) extends FlowState
-
-  case class ExternalFlowEvent (data:MapData)
-  case class ReturnFromSubflow (data:MapData)
-
-  case class Flow(name: String, initialState: FlowState, states: Seq[FlowState])
-
-  def props(flow:Flow, processId: String) = Props(new FlowActor(flow, processId))
-
-  class FlowRegister extends Actor with ActorLogging {
-    override def receive: Receive = {
-      case Start(flowName) =>
-        log.info(s"Trying to find or create actor for flow: ${flowName}")
-        // Loading flowName
-        val flow = loadFlow(flowName)
-        val processId = UUID.randomUUID().toString
-        val flowActor = context.actorOf(props(flow, processId), s"flow_${flowName}_$processId")
-
-        val parent = sender
-
-        sender ! flowActor
-
-        log.info ("sent back message")
-    }
-  }
-
-  def loadFlow(flow:String): Flow = {
-    val readProducts = FlowInternalState ("readProducts", Seq(FlowEvent("callExtEvent", e => ("callExt", Map.empty))))
-    val initState = FlowInternalState("init", Seq(FlowEvent("readProducts", e => ("readProducts", Map("products" -> Seq("1", "2", "3"))))))
-    val extState = FlowExternalFlow ("callExt", "secondFlow", "init")
-    Flow("testFlow", initState, Seq(initState, readProducts, extState))
-  }
-}
+import scala.concurrent.duration._
 
 class FlowActor(flow:Flow, processId: String) extends PersistentFSM[FlowState, MapData, DomainEvt] {
   override implicit def domainEventClassTag: ClassTag[DomainEvt] = deClassTag
@@ -77,6 +28,7 @@ class FlowActor(flow:Flow, processId: String) extends PersistentFSM[FlowState, M
   val externalState = FlowInternalState(EXTERNAL_EVENT_NAME, Seq.empty)
 
   override def applyEvent(domainEvent: DomainEvt, currentData: MapData): MapData = {
+    log.info(s"applyEvent callse ${domainEvent}, ${currentData}")
     domainEvent match {
       case de:DomainEvent => statesMap.get (de.stateName) match {
         case Some (event) => currentData ++ de.stateData
@@ -191,4 +143,8 @@ class FlowActor(flow:Flow, processId: String) extends PersistentFSM[FlowState, M
       log.warning(s"Received unhandled request '${e}' in state ${stateName}/${s}, ${stateName.events.find(ev => ev.name == e)}")
       stay replying "wrong state"
   }
+}
+
+object FlowActor {
+  def props(flow:Flow, processId: String) = Props(new FlowActor(flow, processId))
 }
