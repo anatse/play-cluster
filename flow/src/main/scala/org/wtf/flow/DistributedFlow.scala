@@ -2,40 +2,17 @@ package org.wtf.flow
 
 import java.util.UUID
 
-import akka.actor.{Actor, ActorLogging, ActorRef, FSM, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, FSM, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.persistence.fsm.PersistentFSM
 import akka.persistence.fsm.PersistentFSM.Normal
 import akka.util.Timeout
-import org.wtf.flow.DistributedFlow._
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
-import scala.util.{Failure, Success}
-import scala.reflect._
 
 object DistributedFlow {
-  val deClassTag = classTag[DomainEvt]
-
-  type MapData = Map[String, _]
-
-  case class FlowEvent(name: String, handler: MapData => (String, MapData))
-
-  sealed trait FlowState extends PersistentFSM.FSMState {
-    val identifier:String = ""
-    val events:Seq[FlowEvent] = Seq.empty
-  }
-
-  case class DomainEvent (stateName: String, stateData: MapData) extends DomainEvt
-
-  case class FlowInternalState(override val identifier: String, override val events: Seq[FlowEvent]) extends FlowState
-  case class FlowExternalFlow(override val identifier: String, externalFlowPath: String, nextState: String) extends FlowState
-
-  case class ExternalFlowEvent (data:MapData)
-  case class ReturnFromSubflow (data:MapData)
-
-  case class Flow(name: String, initialState: FlowState, states: Seq[FlowState])
-
   def props(flow:Flow, processId: String) = Props(new FlowActor(flow, processId))
 
   class FlowRegister extends Actor with ActorLogging {
@@ -50,6 +27,8 @@ object DistributedFlow {
         val parent = sender
 
         sender ! flowActor
+
+//        self ! PoisonPill
 
         log.info ("sent back message")
     }
@@ -164,17 +143,22 @@ class FlowActor(flow:Flow, processId: String) extends PersistentFSM[FlowState, M
           // TODO change code to make available calls between cluster nodes
           implicit val timeout = Timeout(5 seconds)
           import context.dispatcher
-          (context.parent ? Start(extFlow.externalFlowPath)).mapTo[ActorRef].onComplete {
-            case Success(subflow) =>
-              log.error(s"Success call subflow: ${subflow}")
-              subflow ! ExternalFlowEvent(subflowData)
 
-            case Failure(err) =>
-              log.error(s"Error calling subflow: ${err}")
-          }
+          val subflowFuture = (context.parent ? Start(extFlow.externalFlowPath)).mapTo[ActorRef]
+          val subflow = Await.result(subflowFuture, 5 second)
+          subflow ! ExternalFlowEvent(subflowData)
+
+//          (context.parent ? Start(extFlow.externalFlowPath)).mapTo[ActorRef].onComplete {
+//            case Success(subflow) =>
+//              log.error(s"Success call subflow: ${subflow}")
+//              subflow ! ExternalFlowEvent(subflowData)
+//
+//            case Failure(err) =>
+//              log.error(s"Error calling subflow: ${err}")
+//          }
 
           // Change state for listen response from subflow
-          goto (externalState) applying DomainEvent (externalState.identifier, subflowData) replying s"goto $externalState"
+          goto (externalState) applying DomainEvent (externalState.identifier, subflowData) replying subflow
 
         case _ => stay replying("Do nothing")
       }
