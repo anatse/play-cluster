@@ -67,7 +67,35 @@ lazy val flow = (project in file("flow")).
       // Serialization
       "com.github.romix.akka" %% "akka-kryo-serialization" % "0.5.1",
 
-      // Clickhouse
+      // Sigar library
+      "io.kamon" % "sigar-loader" % "1+",
+
+      "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
+      "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test
+    )
+  )
+  .enablePlugins(JavaAppPackaging)
+  .configs (MultiJvm)
+  .dependsOn(shared)
+
+lazy val storage = (project in file("storage")).
+  settings(
+    name := "storage",
+    version := "1.0-SNAPSHOT",
+    scalaVersion := scalaV,
+    fork in run := true,
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
+      "com.typesafe.akka" %% "akka-cluster-metrics" % akkaVersion,
+
+      // Typed actors. TODO This functionality marked as may change do not use this module in production
+      // "com.typesafe.akka" %% "akka-actor-typed" % "2.5.14",
+
+      // Serialization
+      "com.github.romix.akka" %% "akka-kryo-serialization" % "0.5.1",
+
+      // ClickHouse
       "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.+",
 
       // Sigar library
@@ -83,7 +111,12 @@ lazy val flow = (project in file("flow")).
   .dependsOn(shared)
 
 lazy val shared = (project in file("shared")).
-  settings(scalaVersion := scalaV)
+  settings(
+    scalaVersion := scalaV,
+    libraryDependencies ++= Seq (
+      "com.chuusai" %% "shapeless" % "2.3.3"
+    )
+  )
 
 onLoad in Global ~= (_ andThen ("project play" :: _))
 

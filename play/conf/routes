@@ -6,8 +6,6 @@
 # An example controller showing a sample home page
 GET     /                           controllers.HomeController.index
 GET     /c                          controllers.HomeController.callFlow(flowName:String, state:String)
-GET     /get                        controllers.HomeController.getInfo()
-GET     /events                     controllers.HomeController.getEvents(id:String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
