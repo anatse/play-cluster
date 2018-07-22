@@ -1,15 +1,15 @@
 package org.wtf.flow
 
-import akka.actor.{ActorSystem}
+import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestPersistentFSMRef, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
-
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 import org.wtf.flow.DistributedFlow._
 
 import scala.concurrent.duration._
 
-class FlowTest extends TestKit(ActorSystem("TestFSM")) with ImplicitSender
+class FlowTest extends TestKit(ActorSystem("TestFSM", ConfigFactory.load("application-test"))) with ImplicitSender
   with WordSpecLike with Matchers with BeforeAndAfterAll {
 
   override def afterAll {
